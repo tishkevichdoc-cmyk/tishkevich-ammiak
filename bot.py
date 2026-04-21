@@ -1,6 +1,7 @@
+import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -10,21 +11,23 @@ CHANNEL_USERNAME = "@tishkevicdoc"
 METODICHKA_URL = "https://t.me/tishkevicdoc/141"
 
 
-def check_subscription(user_id: int, context: CallbackContext) -> bool:
+async def check_subscription(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
     try:
-        member = context.bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
+        member = await context.bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
         return member.status in ["member", "administrator", "creator"]
     except Exception as e:
         logger.error(f"Ошибка проверки подписки: {e}")
         return False
 
 
-def start(update: Update, context: CallbackContext):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     first_name = update.effective_user.first_name
 
-    if check_subscription(user_id, context):
-        update.message.reply_text(
+    is_subscribed = await check_subscription(user_id, context)
+
+    if is_subscribed:
+        await update.message.reply_text(
             f"Привет, {first_name}! 🎉\n\n"
             f"Ты подписан на канал — держи методичку:\n\n"
             f"👉 {METODICHKA_URL}"
@@ -35,7 +38,7 @@ def start(update: Update, context: CallbackContext):
             [InlineKeyboardButton("✅ Я подписался!", callback_data="check_sub")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text(
+        await update.message.reply_text(
             f"Привет, {first_name}! 👋\n\n"
             f"Чтобы получить методичку, нужно подписаться на канал.\n\n"
             f"1️⃣ Подпишись на канал\n"
@@ -44,15 +47,16 @@ def start(update: Update, context: CallbackContext):
         )
 
 
-def check_sub_callback(update: Update, context: CallbackContext):
+async def check_sub_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
+    await query.answer()
 
     user_id = query.from_user.id
     first_name = query.from_user.first_name
+    is_subscribed = await check_subscription(user_id, context)
 
-    if check_subscription(user_id, context):
-        query.edit_message_text(
+    if is_subscribed:
+        await query.edit_message_text(
             f"Отлично, {first_name}! Подписка подтверждена 🎉\n\n"
             f"Держи методичку:\n\n"
             f"👉 {METODICHKA_URL}"
@@ -63,28 +67,26 @@ def check_sub_callback(update: Update, context: CallbackContext):
             [InlineKeyboardButton("✅ Я подписался!", callback_data="check_sub")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(
+        await query.edit_message_text(
             "❌ Ты ещё не подписан на канал.\n\n"
             "Подпишись и нажми кнопку снова!",
             reply_markup=reply_markup
         )
 
 
-def handle_message(update: Update, context: CallbackContext):
-    start(update, context)
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await start(update, context)
 
 
 def main():
-    updater = Updater(token=BOT_TOKEN)
-    dp = updater.dispatcher
+    app = Application.builder().token(BOT_TOKEN).build()
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(check_sub_callback, pattern="check_sub"))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(check_sub_callback, pattern="check_sub"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Бот запущен!")
-    updater.start_polling()
-    updater.idle()
+    app.run_polling()
 
 
 if __name__ == "__main__":
