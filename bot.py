@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = "8690252361:AAFQod6BKhHdcI_Pu73glU_6YEsnE9S7DwM"
 CHANNEL_USERNAME = "@tishkevicdoc"
 METODICHKA_URL = "https://t.me/tishkevicdoc/141"
 
